@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Карта Батлов GameBattle59</title>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
 
@@ -14,6 +14,7 @@
             padding: 0;
             font-family: Arial, sans-serif;
             background-color: #1a1a1a;
+            overflow: hidden; /* Запрещаем скролл самой страницы */
         }
 
         #loading-notice {
@@ -29,31 +30,37 @@
             pointer-events: none;
         }
 
-        /* Стили для формы внутри карты */
+        /* Красивые стили для мобильной формы */
         .map-form {
-            padding: 5px;
+            padding: 10px 5px;
             font-size: 14px;
             color: #333;
+            min-width: 180px;
+        }
+        .map-form label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
         }
         .map-form input {
             width: 100%;
-            padding: 5px;
-            margin: 5px 0 10px 0;
+            padding: 8px;
+            margin-bottom: 10px;
             box-sizing: border-box;
             border: 1px solid #ccc;
-            border-radius: 4px;
+            border-radius: 6px;
+            font-size: 14px;
         }
         .map-form button {
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 8px 12px;
+            border-radius: 6px;
             cursor: pointer;
             width: 100%;
-        }
-        .map-form button:hover {
-            background-color: #218838;
+            font-size: 14px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -120,52 +127,72 @@
             }
 
             // ==========================================
-            // ЛОГИКА ДОБАВЛЕНИЯ ТОЧЕК ИГРОКАМИ
+            // ФИНАЛЬНАЯ ЛОГИКА КЛИКОВ (ДЛЯ ПК И МОБИЛОК)
             // ==========================================
 
-            // Слушаем клик по карте
-            myMap.events.add('click', function (e) {
-                // Получаем координаты клика
-                var coords = e.get('coords');
+            // Функция открытия формы
+            function openBattleForm(coords) {
+                // Пытаемся закрыть старый балун, если он открыт, чтобы не плодить формы
+                if (myMap.balloon.isOpen()) {
+                    myMap.balloon.close();
+                }
 
-                // Создаем HTML-форму создания батла внутри всплывающего окна (балуна)
-                var formHtml = `
-                    <div class="map-form">
-                        <b>Создать новый батл ⚔️</b><br>
-                        <label>Что за игра / событие?</label>
-                        <input type="text" id="battle-title" placeholder="Например: Катка в FIFA 25">
-                        <button id="save-battle-btn">Создать точку</button>
-                    </div>
-                `;
-
-                // Открываем балун в месте клика
                 myMap.balloon.open(coords, {
-                    contentHeader: 'Новая точка сбора',
-                    contentBody: formHtml
+                    contentHeader: 'Новый батл ⚔️',
+                    contentBody: `
+                        <div class="map-form">
+                            <label>Что за катка?</label>
+                            <input type="text" id="battle-title" placeholder="FIFA / CS / Настолки">
+                            <button id="save-battle-btn">Создать точку</button>
+                        </div>
+                    `
                 });
+            }
 
-                // Вешаем обработчик на кнопку "Создать точку" внутри балуна
-                // Используем setTimeout, чтобы дождаться, пока HTML появится на экране
-                setTimeout(function() {
-                    document.getElementById('save-battle-btn').addEventListener('click', function() {
+            // УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК: слушаем событие 'mousedown' (нажатие кнопки/тап),
+            // но только если это одиночный левый клик и карта не тащится.
+            // Это событие отлично работает и на ПК, и на смартфонах.
+            myMap.events.add('click', function (e) {
+                // Если клик был не по самой карте, а по существующей метке — форму не открываем
+                if (e.get('target') !== myMap) { return; }
+                
+                openBattleForm(e.get('coords'));
+            });
+
+            // Для телефонов, если 'click' не всегда пробивает, используем дублирующее
+            // событие зажатия (длинный тап) — оно более надежно в WebApp
+            myMap.events.add('contextmenu', function (e) {
+                // Чтобы на ПК не открывалось стандартное меню правой кнопки мыши
+                if (e.get('target') === myMap) {
+                   e.preventDefault(); 
+                   openBattleForm(e.get('coords'));
+                }
+            });
+
+            // Оживление кнопки создания точки
+            myMap.events.add('balloonopen', function () {
+                var btn = document.getElementById('save-battle-btn');
+                if (btn) {
+                    btn.addEventListener('click', function () {
                         var title = document.getElementById('battle-title').value;
-                        if (!title) {
-                            alert('Пожалуйста, введи название батла!');
+                        if (!title.trim()) {
+                            alert('Введи название игры!');
                             return;
                         }
 
-                        // Создаем новую метку на карте
-                        var playerPlacemark = new ymaps.Placemark(coords, {
-                            balloonContent: `<b>Батл от игрока! 🎮</b><br>${title}`
+                        var currentCoords = myMap.balloon.getPosition();
+
+                        var playerMark = new ymaps.Placemark(currentCoords, {
+                            balloonContent: `<b>Игрок собирает батл! 🎮</b><br>${title}`
                         }, {
-                            preset: 'islands#darkGreenCircleDotIcon' // Игрокские метки будут зелеными кружками
+                            preset: 'islands#darkGreenGameIcon', 
+                            iconColor: '#28a745'
                         });
 
-                        // Добавляем метку на карту и закрываем форму
-                        myMap.geoObjects.add(playerPlacemark);
-                        myMap.balloon.close();
+                        myMap.geoObjects.add(playerMark);
+                        myMap.balloon.close(); 
                     });
-                }, 100);
+                }
             });
         }
     </script>
