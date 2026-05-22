@@ -7,7 +7,6 @@
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
 
     <style>
-        /* Растягиваем карту на весь экран смартфона */
         html, body, #map {
             width: 100%;
             height: 100%;
@@ -17,7 +16,6 @@
             background-color: #1a1a1a;
         }
 
-        /* Всплывающая подсказка над картой */
         #loading-notice {
             position: absolute;
             top: 10px;
@@ -38,59 +36,72 @@
     <div id="map"></div>
 
     <script type="text/javascript">
-        // Ждем, пока API Яндекса загрузится
         ymaps.ready(init);
 
         function init() {
-            // Убираем уведомление о загрузке
             document.getElementById('loading-notice').style.display = 'none';
 
-            // 1. Словарь координат центров районов Перми
+            // 1. Точные скорректированные координаты центров районов Перми
             const districtCoordinates = {
-                'leninskiy': [58.0104, 56.2504],          // Ленинский
-                'sverdlovskiy': [57.9942, 56.2692],       // Свердловский
-                'industrialniy': [57.9731, 56.1952],      // Индустриальный
-                'motovilihinskiy': [58.0305, 56.2912],    // Мотовилиха
-                'kirovskiy': [58.0118, 56.0125],          // Кировский (Закамск)
-                'dzerzhinskiy': [58.0092, 56.1862],       // Дзержинский
-                'ordzhonikidzevskiy': [58.1187, 56.3421]  // Орджо
+                'leninskiy': [58.0104, 56.2504],          // Ленинский (Эспланада / Драмтеатр)
+                'sverdlovskiy': [57.9942, 56.2692],       // Свердловский (Комсомольская площадь)
+                'industrialniy': [57.9790, 56.1950],      // Индустриальный (ТРК Столица / Мира)
+                'motovilihinskiy': [58.0285, 56.2860],    // Мотовилиха (Район Цирка / Рабочий поселок)
+                'kirovskiy': [58.0140, 56.0250],          // Кировский (Центр Закамска / Экран)
+                'dzerzhinskiy': [58.0075, 56.1880],       // Дзержинский (Хохрякова / Район Гознака)
+                'ordzhonikidzevskiy': [58.1150, 56.3350]  // Орджоникидзевский (Гайва / Парк Чехова)
             };
 
-            // 2. Ловим параметр ?district= из ссылки
+            // Красивые названия для меток центров
+            const districtNames = {
+                'leninskiy': 'Ленинский район 🏛️',
+                'sverdlovskiy': 'Свердловский район 🏢',
+                'industrialniy': 'Индустриальный район 🏭',
+                'motovilihinskiy': 'Мотовилихинский район ⚒️',
+                'kirovskiy': 'Кировский район (Закамск) 🌲',
+                'dzerzhinskiy': 'Дзержинский район 🚂',
+                'ordzhonikidzevskiy': 'Орджоникидзевский район 🌊'
+            };
+
+            // 2. Получаем район из ссылки бота
             const urlParams = new URLSearchParams(window.location.search);
             const chosenDistrict = urlParams.get('district');
 
-            // 3. Настройки по умолчанию (Центр Перми)
+            // Настройки по умолчанию (Общий центр Перми)
             let mapCenter = [58.0104, 56.2504]; 
             let defaultZoom = 12;
 
-            // 4. Если район передан и есть в словаре — летим туда и приближаем
             if (chosenDistrict && districtCoordinates[chosenDistrict]) {
                 mapCenter = districtCoordinates[chosenDistrict];
-                defaultZoom = 14; // Масштаб ближе, чтобы рассмотреть район
+                defaultZoom = 14; // Приближаем ближе к центру района
             }
 
-            // 5. Создаем саму карту
+            // 3. Создаем карту
             var myMap = new ymaps.Map("map", {
                 center: mapCenter,
                 zoom: defaultZoom,
-                controls: ['zoomControl', 'geolocationControl'] // Оставляем только нужные кнопки
+                controls: ['zoomControl', 'geolocationControl']
             });
 
-            // 6. Добавляем примеры точек (каток/батлов) на карту для красоты
-            // Точка 1
-            var placemark1 = new ymaps.Placemark([58.0104, 56.2504], {
-                balloonContent: '<b>Клуб настолок "Ленинский Батл"</b><br>Игры: Вархаммер, Монополия<br>Статус: Идет набор!'
-            }, {
-                preset: 'islands#redDotIconWithCaption'
-            });
+            // 4. Если пользователь выбрал район — ставим ЖИРНУЮ метку прямо в новый центр
+            if (chosenDistrict && districtCoordinates[chosenDistrict]) {
+                var centerMark = new ymaps.Placemark(mapCenter, {
+                    balloonContent: `<b>Вы здесь: ${districtNames[chosenDistrict]}</b><br>Твой базовый район для поиска батлов.`
+                }, {
+                    preset: 'islands#goldStarIcon', // Иконка золотой звезды, чтобы сразу бросалась в глаза
+                    iconColor: '#ffcc00'
+                });
+                myMap.geoObjects.add(centerMark);
+            }
 
-            // Точка 2
-            var placemark2 = new ymaps.Placemark([58.0305, 56.2912], {
-                balloonContent: '<b>Мотовилиха Gaming</b><br>Турнир по Покеру в пятницу!'
-            }, {
-                preset: 'islands#blueDotIconWithCaption'
-            });
+            // 5. Твои дополнительные игровые точки (для примера)
+            var placemark1 = new ymaps.Placemark([58.0120, 56.2520], {
+                balloonContent: '<b>Клуб "Ленинский Батл"</b><br>Статус: Идет сбор игроков!'
+            }, { preset: 'islands#redDotIcon' });
+
+            var placemark2 = new ymaps.Placemark([58.0310, 56.2900], {
+                balloonContent: '<b>Мотовилиха Gaming</b><br>Турнир по фифе в субботу!'
+            }, { preset: 'islands#blueDotIcon' });
 
             myMap.geoObjects.add(placemark1);
             myMap.geoObjects.add(placemark2);
