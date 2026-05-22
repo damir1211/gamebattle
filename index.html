@@ -6,18 +6,26 @@
     <title>Карта Батлов GameBattle59</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
 
     <style>
-        html, body, #map {
+        html, body {
             width: 100%;
             height: 100%;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #1a1a1a;
             overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
 
         #loading-notice {
@@ -33,37 +41,61 @@
             pointer-events: none;
         }
 
-        .map-form {
-            padding: 10px 5px;
-            font-size: 14px;
-            color: #333;
-            min-width: 180px;
-        }
-        .map-form label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 4px;
-        }
-        .map-form input {
+        /* Стильное независимое окно формы внизу экрана */
+        #bottom-form {
+            position: fixed;
+            bottom: -200px; /* Изначально спрятана внизу */
+            left: 0;
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
+            background: #ffffff;
+            z-index: 9999; /* Поверх карты и всего остального */
+            box-sizing: border-box;
+            padding: 16px 20px 30px 20px;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            transition: bottom 0.3s ease-out; /* Плавный выезд */
+        }
+
+        #bottom-form.active {
+            bottom: 0; /* Выезжает на экран */
+        }
+
+        .form-header {
+            font-weight: bold;
+            font-size: 16px;
+            color: #222;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .close-btn {
+            color: #888;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        #bottom-form input {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0 12px 0;
             box-sizing: border-box;
             border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 16px;
-            -webkit-user-select: text;
-            user-select: text;
+            border-radius: 8px;
+            font-size: 16px; /* Защита от зума на iOS */
+            background: #f5f5f5;
+            color: #000;
         }
-        .map-form button {
+
+        #bottom-form button {
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 10px 12px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
             width: 100%;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
         }
     </style>
@@ -73,8 +105,16 @@
     <div id="loading-notice">Загрузка Карты Перми...</div>
     <div id="map"></div>
 
+    <div id="bottom-form">
+        <div class="form-header">
+            <span>Создать новый батл ⚔️</span>
+            <span class="close-btn" id="close-form-btn">✕</span>
+        </div>
+        <input type="text" id="battle-title" placeholder="Что за катка? (FIFA, CS, Настолки)" autocomplete="off">
+        <button id="save-battle-btn">Создать точку</button>
+    </div>
+
     <script type="text/javascript">
-        // Безопасная инициализация Telegram WebApp
         if (window.Telegram && window.Telegram.WebApp) {
             const tg = window.Telegram.WebApp;
             tg.ready();
@@ -82,6 +122,9 @@
         }
 
         ymaps.ready(init);
+
+        // Переменная для хранения временных координат клика
+        let activeCoords = null;
 
         function init() {
             document.getElementById('loading-notice').style.display = 'none';
@@ -94,16 +137,6 @@
                 'kirovskiy': [58.0140, 56.0250],
                 'dzerzhinskiy': [58.0075, 56.1880],
                 'ordzhonikidzevskiy': [58.1150, 56.3350]
-            };
-
-            const districtNames = {
-                'leninskiy': 'Ленинский район 🏛️',
-                'sverdlovskiy': 'Свердловский район 🏢',
-                'industrialniy': 'Индустриальный район 🏭',
-                'motovilihinskiy': 'Мотовилихинский район ⚒️',
-                'kirovskiy': 'Кировский район (Закамск) 🌲',
-                'dzerzhinskiy': 'Дзержинский район 🚂',
-                'ordzhonikidzevskiy': 'Орджоникидзевский район 🌊'
             };
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -124,85 +157,71 @@
             });
 
             if (chosenDistrict && districtCoordinates[chosenDistrict]) {
-                var centerMark = new ymaps.Placemark(mapCenter, {
-                    balloonContent: `<b>Вы здесь: ${districtNames[chosenDistrict]}</b><br>Твой базовый район.`
-                }, {
+                var centerMark = new ymaps.Placemark(mapCenter, {}, {
                     preset: 'islands#goldStarIcon',
                     iconColor: '#ffcc00'
                 });
                 myMap.geoObjects.add(centerMark);
             }
 
-            // Функция открытия формы
-            function openBattleForm(coords) {
-                if (myMap.balloon.isOpen()) {
-                    myMap.balloon.close();
-                }
-                myMap.balloon.open(coords, {
-                    contentHeader: 'Новый батл ⚔️',
-                    contentBody: `
-                        <div class="map-form">
-                            <label>Что за катка?</label>
-                            <input type="text" id="battle-title" placeholder="FIFA / CS / Настолки" autocomplete="off">
-                            <button id="save-battle-btn">Создать точку</button>
-                        </div>
-                    `
-                }, {
-                    autoPan: true,
-                    autoPanDuration: 300
-                });
+            // Функция показа формы
+            function triggerForm(coords) {
+                activeCoords = coords;
+                document.getElementById('bottom-form').classList.add('active');
+                document.getElementById('battle-title').focus(); // Сразу ставим фокус на ввод
             }
 
-            // Разделяем события по отдельности, чтобы старые браузеры не ломались
-            
-            // 1. Обычный клик (мобилки + ПК)
+            // Закрытие формы по крестику
+            document.getElementById('close-form-btn').addEventListener('click', function() {
+                document.getElementById('bottom-form').classList.remove('active');
+                document.getElementById('battle-title').blur();
+            });
+
+            // Ловим клики по карте
             myMap.events.add('click', function (e) {
                 if (e.get('target') === myMap) {
-                    openBattleForm(e.get('coords'));
+                    triggerForm(e.get('coords'));
                 }
             });
 
-            // 2. Нажатие мышки (ПК фикс)
             myMap.events.add('mousedown', function (e) {
                 if (e.get('target') !== myMap) { return; }
                 var domEvent = e.get('domEvent');
                 if (domEvent && domEvent.get('button') === 0) {
-                    openBattleForm(e.get('coords'));
+                    triggerForm(e.get('coords'));
                 }
             });
 
-            // 3. Лонгтап / Правая кнопка мыши (Мобилки фикс)
             myMap.events.add('contextmenu', function (e) {
                 if (e.get('target') === myMap) {
                     e.preventDefault(); 
-                    openBattleForm(e.get('coords'));
+                    triggerForm(e.get('coords'));
                 }
             });
 
-            // Оживление кнопки внутри балуна
-            myMap.events.add('balloonopen', function () {
-                var btn = document.getElementById('save-battle-btn');
-                if (btn) {
-                    btn.addEventListener('click', function () {
-                        var title = document.getElementById('battle-title').value;
-                        if (!title.trim()) {
-                            alert('Введи название игры!');
-                            return;
-                        }
-
-                        var currentCoords = myMap.balloon.getPosition();
-
-                        var playerMark = new ymaps.Placemark(currentCoords, {
-                            balloonContent: `<b>Игрок собирает батл! 🎮</b><br>${title}`
-                        }, {
-                            preset: 'islands#darkGreenGameIcon', 
-                            iconColor: '#28a745'
-                        });
-
-                        myMap.geoObjects.add(playerMark);
-                        myMap.balloon.close(); 
-                    });
+            // Обработка кнопки "Создать точку" в выезжающей панели
+            document.getElementById('save-battle-btn').addEventListener('click', function () {
+                var title = document.getElementById('battle-title').value;
+                if (!title.trim()) {
+                    alert('Введи название игры!');
+                    return;
                 }
+
+                if (activeCoords) {
+                    var playerMark = new ymaps.Placemark(activeCoords, {
+                        balloonContent: `<b>Игрок собирает батл! 🎮</b><br>${title}`
+                    }, {
+                        preset: 'islands#darkGreenGameIcon', 
+                        iconColor: '#28a745'
+                    });
+
+                    myMap.geoObjects.add(playerMark);
+                }
+
+                // Прячем форму и очищаем инпут
+                document.getElementById('battle-title').value = '';
+                document.getElementById('bottom-form').classList.remove('active');
+                document.getElementById('battle-title').blur();
             });
         }
     </script>
