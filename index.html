@@ -14,7 +14,7 @@
             padding: 0;
             font-family: Arial, sans-serif;
             background-color: #1a1a1a;
-            overflow: hidden; /* Запрещаем скролл самой страницы */
+            overflow: hidden;
         }
 
         #loading-notice {
@@ -30,7 +30,6 @@
             pointer-events: none;
         }
 
-        /* Красивые стили для мобильной формы */
         .map-form {
             padding: 10px 5px;
             font-size: 14px;
@@ -126,17 +125,14 @@
                 myMap.geoObjects.add(centerMark);
             }
 
-            // ==========================================
-            // ФИНАЛЬНАЯ ЛОГИКА КЛИКОВ (ДЛЯ ПК И МОБИЛОК)
-            // ==========================================
+            // =======================================================
+            // ЖЕЛЕЗОБЕТОННАЯ ЛОГИКА ОТКРЫТИЯ ОКНА НА ПК И ТЕЛЕФОНЕ
+            // =======================================================
 
-            // Функция открытия формы
             function openBattleForm(coords) {
-                // Пытаемся закрыть старый балун, если он открыт, чтобы не плодить формы
                 if (myMap.balloon.isOpen()) {
                     myMap.balloon.close();
                 }
-
                 myMap.balloon.open(coords, {
                     contentHeader: 'Новый батл ⚔️',
                     contentBody: `
@@ -149,23 +145,26 @@
                 });
             }
 
-            // УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК: слушаем событие 'mousedown' (нажатие кнопки/тап),
-            // но только если это одиночный левый клик и карта не тащится.
-            // Это событие отлично работает и на ПК, и на смартфонах.
-            myMap.events.add('click', function (e) {
-                // Если клик был не по самой карте, а по существующей метке — форму не открываем
+            // Ловим абсолютно любое нажатие на карту через внутренний менеджер событий Яндекса
+            myMap.events.add(['click', 'mousedown', 'contextmenu'], function (e) {
+                // Если кликнули на уже готовую метку — форму не открываем, даем прочитать инфу о метке
                 if (e.get('target') !== myMap) { return; }
-                
-                openBattleForm(e.get('coords'));
-            });
 
-            // Для телефонов, если 'click' не всегда пробивает, используем дублирующее
-            // событие зажатия (длинный тап) — оно более надежно в WebApp
-            myMap.events.add('contextmenu', function (e) {
-                // Чтобы на ПК не открывалось стандартное меню правой кнопки мыши
-                if (e.get('target') === myMap) {
-                   e.preventDefault(); 
-                   openBattleForm(e.get('coords'));
+                // Получаем тип события и координаты
+                var eventType = e.get('type');
+                var coords = e.get('coords');
+
+                // Если это ПК (событие mousedown — нажатие мыши)
+                if (eventType === 'mousedown') {
+                    // Проверяем, что нажата именно ЛЕВАЯ кнопка мыши (button === 0)
+                    var domEvent = e.get('domEvent');
+                    if (domEvent && domEvent.get('button') === 0) {
+                        openBattleForm(coords);
+                    }
+                } 
+                // Если это мобилка или сработал стандартный клик/лонгтап
+                else {
+                    openBattleForm(coords);
                 }
             });
 
