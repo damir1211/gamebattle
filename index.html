@@ -46,13 +46,13 @@
         }
         .map-form input {
             width: 100%;
-            padding: 10px; /* Немного увеличили для удобства тапа пальцем */
+            padding: 10px;
             margin-bottom: 10px;
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 16px; /* 16px предотвращает авто-зум экрана на iOS */
-            -webkit-user-select: text; /* Разрешаем выделение текста на iOS */
+            font-size: 16px;
+            -webkit-user-select: text;
             user-select: text;
         }
         .map-form button {
@@ -74,10 +74,12 @@
     <div id="map"></div>
 
     <script type="text/javascript">
-        // Инициализируем Telegram WebApp
-        const tg = window.Telegram.WebApp;
-        tg.ready(); // Сообщаем ТГ, что приложение готово
-        tg.expand(); // Разворачиваем WebApp на максимум, чтобы зафиксировать высоту
+        // Безопасная инициализация Telegram WebApp
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+        }
 
         ymaps.ready(init);
 
@@ -131,6 +133,7 @@
                 myMap.geoObjects.add(centerMark);
             }
 
+            // Функция открытия формы
             function openBattleForm(coords) {
                 if (myMap.balloon.isOpen()) {
                     myMap.balloon.close();
@@ -145,28 +148,38 @@
                         </div>
                     `
                 }, {
-                    // Опция, чтобы карта плавно сдвигалась, освобождая место под балун и клавиатуру
                     autoPan: true,
                     autoPanDuration: 300
                 });
             }
 
-            myMap.events.add(['click', 'mousedown', 'contextmenu'], function (e) {
-                if (e.get('target') !== myMap) { return; }
-
-                var eventType = e.get('type');
-                var coords = e.get('coords');
-
-                if (eventType === 'mousedown') {
-                    var domEvent = e.get('domEvent');
-                    if (domEvent && domEvent.get('button') === 0) {
-                        openBattleForm(coords);
-                    }
-                } else {
-                    openBattleForm(coords);
+            // Разделяем события по отдельности, чтобы старые браузеры не ломались
+            
+            // 1. Обычный клик (мобилки + ПК)
+            myMap.events.add('click', function (e) {
+                if (e.get('target') === myMap) {
+                    openBattleForm(e.get('coords'));
                 }
             });
 
+            // 2. Нажатие мышки (ПК фикс)
+            myMap.events.add('mousedown', function (e) {
+                if (e.get('target') !== myMap) { return; }
+                var domEvent = e.get('domEvent');
+                if (domEvent && domEvent.get('button') === 0) {
+                    openBattleForm(e.get('coords'));
+                }
+            });
+
+            // 3. Лонгтап / Правая кнопка мыши (Мобилки фикс)
+            myMap.events.add('contextmenu', function (e) {
+                if (e.get('target') === myMap) {
+                    e.preventDefault(); 
+                    openBattleForm(e.get('coords'));
+                }
+            });
+
+            // Оживление кнопки внутри балуна
             myMap.events.add('balloonopen', function () {
                 var btn = document.getElementById('save-battle-btn');
                 if (btn) {
