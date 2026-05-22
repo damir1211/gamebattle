@@ -13,8 +13,10 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            font-family: Arial, sans-serif;
             background-color: #1a1a1a;
         }
+
         /* Всплывающая подсказка над картой */
         #loading-notice {
             position: absolute;
@@ -26,7 +28,6 @@
             padding: 8px 12px;
             border-radius: 8px;
             font-size: 14px;
-            font-family: Arial, sans-serif;
             pointer-events: none;
         }
     </style>
@@ -37,61 +38,63 @@
     <div id="map"></div>
 
     <script type="text/javascript">
-        // Функция для чтения параметров из ссылки (?district=...)
-        function getQueryParam(param) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(param);
-        }
-
-        // Координаты центров всех районов Перми
-        const districtCoordinates = {
-            'leninskiy': [58.0104, 56.2502],          // Ленинский (Центр)
-            'sverdlovskiy': [57.9861, 56.2694],       // Свердловский
-            'industrialniy': [57.9642, 56.1953],      // Индустриальный
-            'motovilihinskiy': [58.0325, 56.2916],    // Мотовилиха
-            'kirovskiy': [58.0125, 56.0124],          // Кировский (Закамск)
-            'dzerzhinskiy': [58.0094, 56.1864],       // Дзержинский
-            'ordzhonikidzevskiy': [58.1256, 56.3421]  // Орджоникидзевский
-        };
+        // Ждем, пока API Яндекса загрузится
+        ymaps.ready(init);
 
         function init() {
-            // Скрываем надпись загрузки, когда API готово
-            const notice = document.getElementById('loading-notice');
-            if (notice) notice.style.display = 'none';
+            // Убираем уведомление о загрузке
+            document.getElementById('loading-notice').style.display = 'none';
 
-            // Считываем какой район прилетел из бота
-            const currentDistrict = getQueryParam('district');
-            
-            // По умолчанию — общий центр Перми
-            let mapCenter = [58.0104, 56.2502]; 
-            let mapZoom = 12; // Стандартный масштаб для города
+            // 1. Словарь координат центров районов Перми
+            const districtCoordinates = {
+                'leninskiy': [58.0104, 56.2504],          // Ленинский
+                'sverdlovskiy': [57.9942, 56.2692],       // Свердловский
+                'industrialniy': [57.9731, 56.1952],      // Индустриальный
+                'motovilihinskiy': [58.0305, 56.2912],    // Мотовилиха
+                'kirovskiy': [58.0118, 56.0125],          // Кировский (Закамск)
+                'dzerzhinskiy': [58.0092, 56.1862],       // Дзержинский
+                'ordzhonikidzevskiy': [58.1187, 56.3421]  // Орджо
+            };
 
-            // Если район передан и есть в нашей базе — меняем центр и делаем зум ближе
-            if (currentDistrict && districtCoordinates[currentDistrict]) {
-                mapCenter = districtCoordinates[currentDistrict];
-                mapZoom = 14; // Приближаем район ближе, чтобы сразу видеть улицы
+            // 2. Ловим параметр ?district= из ссылки
+            const urlParams = new URLSearchParams(window.location.search);
+            const chosenDistrict = urlParams.get('district');
+
+            // 3. Настройки по умолчанию (Центр Перми)
+            let mapCenter = [58.0104, 56.2504]; 
+            let defaultZoom = 12;
+
+            // 4. Если район передан и есть в словаре — летим туда и приближаем
+            if (chosenDistrict && districtCoordinates[chosenDistrict]) {
+                mapCenter = districtCoordinates[chosenDistrict];
+                defaultZoom = 14; // Масштаб ближе, чтобы рассмотреть район
             }
 
-            // Создаем карту
+            // 5. Создаем саму карту
             var myMap = new ymaps.Map("map", {
                 center: mapCenter,
-                zoom: mapZoom,
-                controls: ['zoomControl', 'geolocationControl']
+                zoom: defaultZoom,
+                controls: ['zoomControl', 'geolocationControl'] // Оставляем только нужные кнопки
             });
 
-            // ТЕСТОВЫЙ МАРКЕР (Пример, как ставить точки батлов)
-            // В будущем сюда можно выводить точки из базы данных
-            var myPlacemark = new ymaps.Placemark(mapCenter, {
-                balloonContent: 'Здесь скоро будут турниры GameBattle59!'
+            // 6. Добавляем примеры точек (каток/батлов) на карту для красоты
+            // Точка 1
+            var placemark1 = new ymaps.Placemark([58.0104, 56.2504], {
+                balloonContent: '<b>Клуб настолок "Ленинский Батл"</b><br>Игры: Вархаммер, Монополия<br>Статус: Идет набор!'
             }, {
                 preset: 'islands#redDotIconWithCaption'
             });
-            
-            myMap.geoObjects.add(myPlacemark);
-        }
 
-        // Ждем полную загрузку Яндекс.Карт
-        ymaps.ready(init);
+            // Точка 2
+            var placemark2 = new ymaps.Placemark([58.0305, 56.2912], {
+                balloonContent: '<b>Мотовилиха Gaming</b><br>Турнир по Покеру в пятницу!'
+            }, {
+                preset: 'islands#blueDotIconWithCaption'
+            });
+
+            myMap.geoObjects.add(placemark1);
+            myMap.geoObjects.add(placemark2);
+        }
     </script>
 </body>
 </html>
