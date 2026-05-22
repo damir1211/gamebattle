@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Карта Батлов GameBattle59</title>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
-    
+
     <style>
         /* Растягиваем карту на весь экран смартфона */
         html, body, #map {
@@ -13,7 +13,6 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
             background-color: #1a1a1a;
         }
         /* Всплывающая подсказка над картой */
@@ -27,6 +26,7 @@
             padding: 8px 12px;
             border-radius: 8px;
             font-size: 14px;
+            font-family: Arial, sans-serif;
             pointer-events: none;
         }
     </style>
@@ -37,56 +37,61 @@
     <div id="map"></div>
 
     <script type="text/javascript">
-        // Ждем, пока API Яндекса загрузится
-        ymaps.ready(init);
+        // Функция для чтения параметров из ссылки (?district=...)
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Координаты центров всех районов Перми
+        const districtCoordinates = {
+            'leninskiy': [58.0104, 56.2502],          // Ленинский (Центр)
+            'sverdlovskiy': [57.9861, 56.2694],       // Свердловский
+            'industrialniy': [57.9642, 56.1953],      // Индустриальный
+            'motovilihinskiy': [58.0325, 56.2916],    // Мотовилиха
+            'kirovskiy': [58.0125, 56.0124],          // Кировский (Закамск)
+            'dzerzhinskiy': [58.0094, 56.1864],       // Дзержинский
+            'ordzhonikidzevskiy': [58.1256, 56.3421]  // Орджоникидзевский
+        };
 
         function init() {
-            // Убираем плашку загрузки
-            document.getElementById('loading-notice').style.display = 'none';
+            // Скрываем надпись загрузки, когда API готово
+            const notice = document.getElementById('loading-notice');
+            if (notice) notice.style.display = 'none';
 
-            // Создаем карту с центром в Перми (координаты примерно Попова/Ленина)
+            // Считываем какой район прилетел из бота
+            const currentDistrict = getQueryParam('district');
+            
+            // По умолчанию — общий центр Перми
+            let mapCenter = [58.0104, 56.2502]; 
+            let mapZoom = 12; // Стандартный масштаб для города
+
+            // Если район передан и есть в нашей базе — меняем центр и делаем зум ближе
+            if (currentDistrict && districtCoordinates[currentDistrict]) {
+                mapCenter = districtCoordinates[currentDistrict];
+                mapZoom = 14; // Приближаем район ближе, чтобы сразу видеть улицы
+            }
+
+            // Создаем карту
             var myMap = new ymaps.Map("map", {
-                center: [58.010455, 56.229443], // Координаты центра Перми
-                zoom: 12, // Масштаб (город виден целиком)
-                controls: ['zoomControl', 'geolocationControl'] // Оставляем только кнопки зума и локации
+                center: mapCenter,
+                zoom: mapZoom,
+                controls: ['zoomControl', 'geolocationControl']
             });
 
-            // Тестовые метки игроков (позже будем брать их из базы данных)
-            var players = [
-                {
-                    coords: [58.0075, 56.1956], // Индустриальный район (условно у Столицы)
-                    name: "Дамир (Ты)",
-                    game: "Варгеймы, Стратегии 🗺️",
-                    status: "Ищу оппонента на вечер!"
-                },
-                {
-                    coords: [58.0143, 56.2732], // Мотовилиха (условно у Цирка)
-                    name: "Алексей",
-                    game: "Америтреш, Немезида 🐉",
-                    status: "Есть свободное место за столом"
-                },
-                {
-                    coords: [57.9925, 56.2488], // Свердловский район
-                    name: "Мария",
-                    game: "Пати-геймы, Кодовые Имена 🎉",
-                    status: "Сыграем в кофейне?"
-                }
-            ];
-
-            // На циклом расставляем метки на карте Перми
-            players.forEach(function(player) {
-                var placemark = new ymaps.Placemark(player.coords, {
-                    // Данные, которые покажутся при клике на метку
-                    balloonContentHeader: `<b>${player.name}</b>`,
-                    balloonContentBody: `<b>Любит:</b> ${player.game}<br><b>Статус:</b> ${player.status}`,
-                    balloonContentFooter: `<button style="width:100%; padding:5px; background:#007bff; color:#fff; border:none; border-radius:4px;" onclick="alert('Запрос отправлен!')">Вызвать на Батл ⚔️</button>`
-                }, {
-                    preset: 'islands#blueCircleDotIcon' // Стиль метки
-                });
-
-                myMap.geoObjects.add(placemark);
+            // ТЕСТОВЫЙ МАРКЕР (Пример, как ставить точки батлов)
+            // В будущем сюда можно выводить точки из базы данных
+            var myPlacemark = new ymaps.Placemark(mapCenter, {
+                balloonContent: 'Здесь скоро будут турниры GameBattle59!'
+            }, {
+                preset: 'islands#redDotIconWithCaption'
             });
+            
+            myMap.geoObjects.add(myPlacemark);
         }
+
+        // Ждем полную загрузку Яндекс.Карт
+        ymaps.ready(init);
     </script>
 </body>
 </html>
