@@ -41,23 +41,22 @@
             pointer-events: none;
         }
 
-        /* Стильное независимое окно формы внизу экрана */
         #bottom-form {
             position: fixed;
-            bottom: -200px; /* Изначально спрятана внизу */
+            bottom: -200px; 
             left: 0;
             width: 100%;
             background: #ffffff;
-            z-index: 9999; /* Поверх карты и всего остального */
+            z-index: 9999; 
             box-sizing: border-box;
             padding: 16px 20px 30px 20px;
             border-radius: 16px 16px 0 0;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
-            transition: bottom 0.3s ease-out; /* Плавный выезд */
+            transition: bottom 0.3s ease-out; 
         }
 
         #bottom-form.active {
-            bottom: 0; /* Выезжает на экран */
+            bottom: 0; 
         }
 
         .form-header {
@@ -82,7 +81,7 @@
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 8px;
-            font-size: 16px; /* Защита от зума на iOS */
+            font-size: 16px; 
             background: #f5f5f5;
             color: #000;
         }
@@ -115,15 +114,16 @@
     </div>
 
     <script type="text/javascript">
+        // Инициализируем Telegram WebApp SDK глобально
+        let tg = null;
         if (window.Telegram && window.Telegram.WebApp) {
-            const tg = window.Telegram.WebApp;
+            tg = window.Telegram.WebApp;
             tg.ready();
             tg.expand();
         }
 
         ymaps.ready(init);
 
-        // Переменная для хранения временных координат клика
         let activeCoords = null;
 
         function init() {
@@ -164,32 +164,25 @@
                 myMap.geoObjects.add(centerMark);
             }
 
-            // Функция показа формы
             function triggerForm(coords) {
                 activeCoords = coords;
                 document.getElementById('bottom-form').classList.add('active');
-                document.getElementById('battle-title').focus(); // Сразу ставим фокус на ввод
+                document.getElementById('battle-title').focus();
             }
 
-            // Закрытие формы по крестику
             document.getElementById('close-form-btn').addEventListener('click', function() {
                 document.getElementById('bottom-form').classList.remove('active');
                 document.getElementById('battle-title').blur();
             });
 
-            // Ловим клики по карте
             myMap.events.add('click', function (e) {
-                if (e.get('target') === myMap) {
-                    triggerForm(e.get('coords'));
-                }
+                if (e.get('target') === myMap) { triggerForm(e.get('coords')); }
             });
 
             myMap.events.add('mousedown', function (e) {
                 if (e.get('target') !== myMap) { return; }
                 var domEvent = e.get('domEvent');
-                if (domEvent && domEvent.get('button') === 0) {
-                    triggerForm(e.get('coords'));
-                }
+                if (domEvent && domEvent.get('button') === 0) { triggerForm(e.get('coords')); }
             });
 
             myMap.events.add('contextmenu', function (e) {
@@ -199,7 +192,7 @@
                 }
             });
 
-            // Обработка кнопки "Создать точку" в выезжающей панели
+            // МУТАЦИЯ: отправка данных в бота при клике на кнопку
             document.getElementById('save-battle-btn').addEventListener('click', function () {
                 var title = document.getElementById('battle-title').value;
                 if (!title.trim()) {
@@ -207,21 +200,26 @@
                     return;
                 }
 
-                if (activeCoords) {
-                    var playerMark = new ymaps.Placemark(activeCoords, {
-                        balloonContent: `<b>Игрок собирает батл! 🎮</b><br>${title}`
-                    }, {
-                        preset: 'islands#darkGreenGameIcon', 
-                        iconColor: '#28a745'
-                    });
-
-                    myMap.geoObjects.add(playerMark);
+                if (!activeCoords) {
+                    alert('Ошибка координат. Попробуй ткнуть на карту еще раз.');
+                    return;
                 }
 
-                // Прячем форму и очищаем инпут
-                document.getElementById('battle-title').value = '';
-                document.getElementById('bottom-form').classList.remove('active');
-                document.getElementById('battle-title').blur();
+                // Собираем объект с данными
+                var battleData = {
+                    lat: activeCoords[0], // Широта
+                    lng: activeCoords[1], // Долгота
+                    title: title.trim()   // Название игры
+                };
+
+                // Проверяем, что мы открыты именно внутри Телеграма
+                if (tg) {
+                    // Превращаем объект в строку и отправляем боту
+                    tg.sendData(JSON.stringify(battleData));
+                } else {
+                    // Если тестируем просто в обычном браузере на ПК
+                    alert("Локальный тест (вне ТГ). Данные готовы к отправке:\n" + JSON.stringify(battleData));
+                }
             });
         }
     </script>
