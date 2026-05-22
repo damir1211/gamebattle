@@ -125,7 +125,6 @@
 
         let activeCoords = null;
 
-        // Вспомогательная функция для безопасного декодирования Base64 с поддержкой кириллицы (UTF-8)
         function decodeBase64UTF8(str) {
             return decodeURIComponent(atob(str).split('').map(function(c) {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
@@ -146,16 +145,11 @@
             };
 
             const urlParams = new URLSearchParams(window.location.search);
-            const chosenDistrict = urlParams.get('district');
-            const encodedData = urlParams.get('data'); // Получаем зашифрованные точки из URL
+            const chosenDistrict = urlParams.get('district') || 'leninskiy'; // По умолчанию Ленинский
+            const encodedData = urlParams.get('data');
 
-            let mapCenter = [58.0104, 56.2504]; 
-            let defaultZoom = 12;
-
-            if (chosenDistrict && districtCoordinates[chosenDistrict]) {
-                mapCenter = districtCoordinates[chosenDistrict];
-                defaultZoom = 14;
-            }
+            let mapCenter = districtCoordinates[chosenDistrict] || [58.0104, 56.2504]; 
+            let defaultZoom = chosenDistrict ? 14 : 12;
 
             var myMap = new ymaps.Map("map", {
                 center: mapCenter,
@@ -163,7 +157,6 @@
                 controls: ['zoomControl', 'geolocationControl']
             });
 
-            // Ставим золотую звезду в центр выбранного района
             if (chosenDistrict && districtCoordinates[chosenDistrict]) {
                 var centerMark = new ymaps.Placemark(mapCenter, {}, {
                     preset: 'islands#goldStarIcon',
@@ -172,16 +165,12 @@
                 myMap.geoObjects.add(centerMark);
             }
 
-            // ==========================================
-            // МАГИЯ ОТОБРАЖЕНИЯ ТОЧЕК ИЗ БАЗЫ ДАННЫХ
-            // ==========================================
+            // Рендерим точки из базы
             if (encodedData) {
                 try {
-                    // Расшифровываем Base64 строку обратно в JSON
                     let decryptedJson = decodeBase64UTF8(encodedData);
                     let battles = JSON.parse(decryptedJson);
 
-                    // Перебираем все точки и рисуем их на карте
                     battles.forEach(function(battle) {
                         var battleMark = new ymaps.Placemark([battle.lat, battle.lng], {
                             balloonContent: `<b>🎮 Игра: ${battle.title}</b><br>👤 Организатор: @${battle.username}`
@@ -196,9 +185,7 @@
                 }
             }
 
-            // ==========================================
-            // ЛОГИКА СОЗДАНИЯ НОВЫХ ТОЧЕК
-            // ==========================================
+            // Управление формой сбора
             function triggerForm(coords) {
                 activeCoords = coords;
                 document.getElementById('bottom-form').classList.add('active');
@@ -238,10 +225,12 @@
                     return;
                 }
 
+                // Передаем координаты, название игры И ТЕКУЩИЙ РАЙОН
                 var battleData = {
                     lat: activeCoords[0],
                     lng: activeCoords[1],
-                    title: title.trim()
+                    title: title.trim(),
+                    district: chosenDistrict
                 };
 
                 if (tg) {
