@@ -2,8 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Карта Батлов GameBattle59</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
 
     <style>
@@ -43,18 +46,20 @@
         }
         .map-form input {
             width: 100%;
-            padding: 8px;
+            padding: 10px; /* Немного увеличили для удобства тапа пальцем */
             margin-bottom: 10px;
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 16px; /* 16px предотвращает авто-зум экрана на iOS */
+            -webkit-user-select: text; /* Разрешаем выделение текста на iOS */
+            user-select: text;
         }
         .map-form button {
             background-color: #28a745;
             color: white;
             border: none;
-            padding: 8px 12px;
+            padding: 10px 12px;
             border-radius: 6px;
             cursor: pointer;
             width: 100%;
@@ -69,12 +74,16 @@
     <div id="map"></div>
 
     <script type="text/javascript">
+        // Инициализируем Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.ready(); // Сообщаем ТГ, что приложение готово
+        tg.expand(); // Разворачиваем WebApp на максимум, чтобы зафиксировать высоту
+
         ymaps.ready(init);
 
         function init() {
             document.getElementById('loading-notice').style.display = 'none';
 
-            // 1. Координаты центров районов Перми
             const districtCoordinates = {
                 'leninskiy': [58.0104, 56.2504],
                 'sverdlovskiy': [57.9942, 56.2692],
@@ -95,7 +104,6 @@
                 'ordzhonikidzevskiy': 'Орджоникидзевский район 🌊'
             };
 
-            // 2. Получаем район из ссылки бота
             const urlParams = new URLSearchParams(window.location.search);
             const chosenDistrict = urlParams.get('district');
 
@@ -107,14 +115,12 @@
                 defaultZoom = 14;
             }
 
-            // 3. Создаем карту
             var myMap = new ymaps.Map("map", {
                 center: mapCenter,
                 zoom: defaultZoom,
                 controls: ['zoomControl', 'geolocationControl']
             });
 
-            // 4. Ставим золотую звезду в центр выбранного района
             if (chosenDistrict && districtCoordinates[chosenDistrict]) {
                 var centerMark = new ymaps.Placemark(mapCenter, {
                     balloonContent: `<b>Вы здесь: ${districtNames[chosenDistrict]}</b><br>Твой базовый район.`
@@ -125,10 +131,6 @@
                 myMap.geoObjects.add(centerMark);
             }
 
-            // =======================================================
-            // ЖЕЛЕЗОБЕТОННАЯ ЛОГИКА ОТКРЫТИЯ ОКНА НА ПК И ТЕЛЕФОНЕ
-            // =======================================================
-
             function openBattleForm(coords) {
                 if (myMap.balloon.isOpen()) {
                     myMap.balloon.close();
@@ -138,37 +140,33 @@
                     contentBody: `
                         <div class="map-form">
                             <label>Что за катка?</label>
-                            <input type="text" id="battle-title" placeholder="FIFA / CS / Настолки">
+                            <input type="text" id="battle-title" placeholder="FIFA / CS / Настолки" autocomplete="off">
                             <button id="save-battle-btn">Создать точку</button>
                         </div>
                     `
+                }, {
+                    // Опция, чтобы карта плавно сдвигалась, освобождая место под балун и клавиатуру
+                    autoPan: true,
+                    autoPanDuration: 300
                 });
             }
 
-            // Ловим абсолютно любое нажатие на карту через внутренний менеджер событий Яндекса
             myMap.events.add(['click', 'mousedown', 'contextmenu'], function (e) {
-                // Если кликнули на уже готовую метку — форму не открываем, даем прочитать инфу о метке
                 if (e.get('target') !== myMap) { return; }
 
-                // Получаем тип события и координаты
                 var eventType = e.get('type');
                 var coords = e.get('coords');
 
-                // Если это ПК (событие mousedown — нажатие мыши)
                 if (eventType === 'mousedown') {
-                    // Проверяем, что нажата именно ЛЕВАЯ кнопка мыши (button === 0)
                     var domEvent = e.get('domEvent');
                     if (domEvent && domEvent.get('button') === 0) {
                         openBattleForm(coords);
                     }
-                } 
-                // Если это мобилка или сработал стандартный клик/лонгтап
-                else {
+                } else {
                     openBattleForm(coords);
                 }
             });
 
-            // Оживление кнопки создания точки
             myMap.events.add('balloonopen', function () {
                 var btn = document.getElementById('save-battle-btn');
                 if (btn) {
